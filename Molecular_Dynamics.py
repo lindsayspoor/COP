@@ -1,20 +1,27 @@
+### This file contains the Molecular Dynamics class, which defines the simulation of molecular particles and its dynamics. ###
+
+
 #imports
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.spatial.distance import cdist as dist
+import random
+
 
 class Molecular_Dynamics:
-  def __init__(self, dim=2, N=2, N_unitcells=3, L=20, mass=1, n_timesteps=300, h=0.01, sigma=1, epsilon=1, rho=0.7, periodic='True', update_method='verlet', lattice='True', plot='True'):
+  def __init__(self, dim=2, N=2, N_unitcells=3, L=20, mass=1, n_timesteps=300, h=0.01, sigma=1, epsilon=1,T=1, k_b=1, rho=0.7, correction_i=10,periodic='True', update_method='verlet', lattice='True', plot='True', random_seed=111):
     '''This class defines the simulation of molecular particles and its dynamics.'''
-
+    
+    
+    #initialise initial values
     self.dim = dim
     self.N = N
     self.N_unitcells = N_unitcells
     self.L = L
     self.mass= mass
-    self.timelength = 100 #s
     self.n_timesteps = n_timesteps
-    self.h = h#self.timelength/self.n_timesteps
+    self.h = h
+    self.T=T
+    self.k_b=k_b
     self.sigma=sigma
     self.epsilon=epsilon
     self.rho=rho
@@ -22,10 +29,20 @@ class Molecular_Dynamics:
     self.update_method=update_method
     self.lattice = lattice
     self.plot=plot
+    self.correction_i=correction_i
+    self.labdas=[]
+    
+    
+    #set random seed
+    random.seed(random_seed)
+    
+    
+    
+    
 
 
 
-
+  ### INITIALISATION FUNCTIONS ### 
   def initialize_positions(self):
     '''Initialize positions of all particles.'''
     
@@ -52,25 +69,24 @@ class Molecular_Dynamics:
     print("initialize_positions() is done.")
 
 
+
   def initialize_velocities(self):
     '''Initialize velocities of all particles.'''
    
-    if self.lattice=='False':
+    if self.lattice=='False' and self.N==2:
       self.velocities = np.zeros((self.n_timesteps, self.N, self.dim))
 
-      if self.N==2:
-        self.velocities[0,0,0] = 1.2
-        self.velocities[0,1,0] = -1.2
+      self.velocities[0,0,0] = 1.2
+      self.velocities[0,1,0] = -1.2
       
-      else:
-        self.velocities[0,:,:] = np.random.normal(loc=0, scale=self.sigma, size=(self.N, self.dim))  #according to MB-distribution this follows a gaussian
+      
 
-    if self.lattice=='True':
+    else:
       self.velocities = np.zeros((self.n_timesteps, self.N, self.dim))
-      self.velocities[0,:,:] = np.random.normal(loc=0, scale=self.sigma, size=(self.N, self.dim)) #moeten we nog fixen
+      self.sigma = np.sqrt(self.k_b*self.T) #np.sqrt(k*self.T/self.m) #make k (physical constant a global one?) #self.sigma weghalen
+      self.velocities[0,:,:] = np.random.normal(loc=0, scale=self.sigma, size=(self.N, self.dim)) 
       
     print("initialize_velocities() is done.")
-
 
 
 
@@ -99,7 +115,8 @@ class Molecular_Dynamics:
     print("initialize_fcc_lattice() is done.")
 
 
-
+  
+  ### PLOTTING FUNCTIONS ###
   def plot_initial_fcc_particles(self):
 
     fig = plt.figure(figsize=(10,10))
@@ -144,6 +161,43 @@ class Molecular_Dynamics:
 
     print("plot_particles() is done.")
 
+    
+    
+  def plot_energies(self):
+    '''Plotting function to plot the energy of entire the system for all given timesteps.'''
+
+
+    plt.figure(figsize=(10,8))
+    plt.plot(np.arange(self.n_timesteps),self.E_kin, label="E_kin")
+    plt.plot(np.arange(self.n_timesteps), self.E_pot, label="E_pot")
+    plt.plot(np.arange(self.n_timesteps), self.E_total, label="E_total")
+    plt.xlabel("timesteps")
+    plt.ylabel("E")
+    plt.legend()
+    plt.title("Energy diagram")
+    plt.savefig(f"energy_update_{self.update_method}_N_{self.N}_n_timesteps_{self.n_timesteps}_fcc_{self.lattice}_h_{self.h}_rho_{self.rho}.pdf")
+    plt.show()
+    
+    print("plot_energies() is done.")
+    
+
+    
+  def plot_labdas(self):
+    '''Plotting function to plot lambda evolution.'''
+
+    x_axis=np.arange(len(self.labdas))*self.correction_i
+    plt.figure(figsize=(10,8))
+    plt.plot(x_axis,self.labdas)
+    plt.xlabel("timesteps")
+    plt.ylabel(r"$\lambda$")
+    plt.title(r"$\lambda$ evolution")
+    plt.savefig(f"Lamda_update_{self.update_method}_N_{self.N}_n_timesteps_{self.n_timesteps}_fcc_{self.lattice}_h_{self.h}_rho_{self.rho}.pdf")
+    plt.show()
+    
+    
+    
+  ########################################################
+
 
   def force_contribution(self,n,i,j):
     '''Computes the contribution of the force for the n-th timestep and the i-th particle with respect to the j-th particle.'''
@@ -167,6 +221,7 @@ class Molecular_Dynamics:
     return force_contribution
 
 
+
   def forces(self,n, i):
     '''Computes the total force of the n-th timestep for all particles in all directions.'''
 
@@ -177,6 +232,7 @@ class Molecular_Dynamics:
       force+= self.force_contribution(n, i, j)
       
     return force
+
 
 
   def minimum_image_conv(self,n,i,j):
@@ -203,7 +259,6 @@ class Molecular_Dynamics:
 
 
 
-
   def update_verlet(self,n):
     '''Updates position and velocity via the verlet algorithm.'''
 
@@ -223,7 +278,6 @@ class Molecular_Dynamics:
 
     self.velocities[n+1,:,:] = self.velocities[n,:,:]+(self.h/(2*self.mass))*(forces_t_h + forces_t)
     
-    #print("update_verlet() is done.")
 
 
   def kinetic_energy(self):
@@ -241,15 +295,15 @@ class Molecular_Dynamics:
 
     self.E_kin=np.sum(E_kin_total, axis=1)
     
-    print("kinetic_energy() is done.")
-
+    
+    return self.E_kin
 
 
 
   def potential_energy(self):
     '''Computes the potential energy of the entire system for all timesteps.'''
     
-    print(self.norm_r_array)
+
     
     E_pot_total=[]
     for i in range(self.n_timesteps):
@@ -264,12 +318,19 @@ class Molecular_Dynamics:
     self.E_pot=np.sum(E_pot_total, axis=1)
 
     
-    print("potential_energy() is done.")
+    return self.E_pot
 
 
 
+  def correct_velocities(self, E_kin_current,n):
+    '''Corrects the velocities if the kinetic energy is far from the expected equilibrium value.'''
+    
+    labda = np.sqrt(((self.N-1)*3*self.k_b*self.T)/E_kin_current)
+    self.labdas.append(labda)
 
-
+    self.velocities[n+1,:,:] = labda * self.velocities[n+1,:,:] 
+    
+    
 
   def lennard_jones(self,r):
     '''Computes the Lennard-Jones potential.'''
@@ -278,26 +339,15 @@ class Molecular_Dynamics:
 
     return self.U
 
-
-  def plot_energies(self):
-    '''Plotting function to plot the energy of entire the system for all given timesteps.'''
-
-
-    plt.figure(figsize=(10,8))
-    plt.plot(np.arange(self.n_timesteps),self.E_kin, label="E_kin")
-    plt.plot(np.arange(self.n_timesteps), self.E_pot, label="E_pot")
-    plt.plot(np.arange(self.n_timesteps), self.E_kin+self.E_pot, label="E_total")
-    plt.xlabel("timesteps")
-    plt.ylabel("E")
-    plt.legend()
-    plt.title("Energy diagram")
-    plt.savefig(f"energy_update_{self.update_method}_N_{self.N}_n_timesteps_{self.n_timesteps}_fcc_{self.lattice}_h_{self.h}_rho_{self.rho}.pdf")
-    plt.show()
-    
-    print("plot_energies() is done.")
+  #########################################################
 
 
 
+
+
+
+  ### RUN THE SIMULATION ###
+  
   def run_simulation(self):
     '''Runs the simulation for the molecular dynamics.'''
 
@@ -320,6 +370,7 @@ class Molecular_Dynamics:
 
     #update the positions and velocities of all particles
     print("loop trough all timesteps...")
+    counter=0
     for n in range(self.n_timesteps-1):
       if self.update_method == 'euler':
         print(f"update for timestep {n}")
@@ -328,27 +379,44 @@ class Molecular_Dynamics:
         print(f"update for timestep {n}")
         self.update_verlet(n)
         
+        
+        if (counter==self.correction_i):
+          
+          E_kin_current = self.kinetic_energy()[n+1]
+          self.correct_velocities(E_kin_current,n)
+          
+
+          
+          counter=0
+        
+      counter+=1
+
+         
+        
     print("compute kinetic energy...")
-    self.kinetic_energy()
+    self.E_kin = self.kinetic_energy()
     print("compute potential energy...")
-    self.potential_energy()
+    self.E_pot = self.potential_energy()
+    
+    self.E_total = self.E_kin + self.E_pot
     
     
     
-    if self.plot:
+    if self.plot=='True':
     
+      #plot lambda evolution
+      self.plot_labdas()
+      
+      
       #plot the trajectories
       print("plot the trajectories")
       self.plot_particles()
-
 
 
       #plot the energies
       print("plot the energies")
       self.plot_energies()
   
-  print("simulation is done.")
-
 
 
 if __name__ == '__main__':
