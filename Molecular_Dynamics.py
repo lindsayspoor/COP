@@ -138,7 +138,7 @@ class Molecular_Dynamics:
       ax.set_ylabel("y")
       ax.set_zlabel("z")
       ax.set_title("Particle trajectories")
-      plt.savefig(f"trajectories_update_{update_method}_N_{self.N}_n_timesteps_{self.n_timesteps}_fcc_{self.lattice}_h_{self.h}_rho_{self.rho}.pdf")
+      plt.savefig(f"trajectories_update_{self.update_method}_N_{self.N}_n_timesteps_{self.n_timesteps}_fcc_{self.lattice}_h_{self.h}_rho_{self.rho}.pdf")
       plt.show()
 
 
@@ -291,7 +291,7 @@ class Molecular_Dynamics:
     plt.ylabel("E")
     plt.legend()
     plt.title("Energy diagram")
-    plt.savefig(f"energy_update_{update_method}_N_{self.N}_n_timesteps_{self.n_timesteps}_fcc_{self.lattice}_h_{self.h}_rho_{self.rho}.pdf")
+    plt.savefig(f"energy_update_{self.update_method}_N_{self.N}_n_timesteps_{self.n_timesteps}_fcc_{self.lattice}_h_{self.h}_rho_{self.rho}.pdf")
     plt.show()
     
     print("plot_energies() is done.")
